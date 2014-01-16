@@ -247,7 +247,8 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->rst_gpio),
 				ctrl_pdata->rst_seq[i]);
 			if (ctrl_pdata->rst_seq[++i])
-				usleep(ctrl_pdata->rst_seq[i] * 1000);
+				usleep_range(ctrl_pdata->rst_seq[i] * 1000,
+						ctrl_pdata->rst_seq[i] * 1000);
 		}
 
 		if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
@@ -1140,10 +1141,8 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 void mdss_panel_set_reg_boot_on(struct device_node *node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	if (of_property_read_bool(node, "qcom,cont-splash-enabled")) {
+	if (of_property_read_bool(node, "qcom,cont-splash-enabled"))
 		ctrl_pdata->panel_vregs.boot_on = true;
-		ctrl_pdata->power_data.boot_on = true;
-	}
 }
 
 int mdss_panel_parse_panel_config_dt(struct mdss_dsi_ctrl_pdata *ctrl_pdata)

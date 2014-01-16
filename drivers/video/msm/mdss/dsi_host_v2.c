@@ -571,7 +571,8 @@ int msm_dsi_cmds_tx(struct mdss_panel_data *pdata,
 			break;
 		}
 		if (cm->dchdr.wait)
-			msleep(cm->dchdr.wait);
+			usleep_range(cm->dchdr.wait * 1000,
+					cm->dchdr.wait * 1000);
 		cm++;
 	}
 
