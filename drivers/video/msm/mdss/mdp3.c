@@ -1709,10 +1709,27 @@ int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 	return rc;
 }
 
+static bool mdp3_mmi_factory_mode(void)
+{
+	static bool property_read;
+	static bool factory;
+
+	if (!property_read) {
+		struct device_node *np = of_find_node_by_path("/chosen");
+		if (np)
+			factory = of_property_read_bool(np,
+				"mmi,factory-cable");
+		of_node_put(np);
+		property_read = true;
+	}
+
+	return factory;
+}
+
 void mdp3_release_splash_memory(void)
 {
 	/* Give back the reserved memory to the system */
-	if (mdp3_res->splash_mem_addr) {
+	if (mdp3_res->splash_mem_addr && !mdp3_mmi_factory_mode()) {
 		pr_debug("mdp3_release_splash_memory\n");
 		memblock_free(mdp3_res->splash_mem_addr,
 				mdp3_res->splash_mem_size);
