@@ -752,3 +752,10 @@ config INPUT_VALIDITY_METALLICA
           Metallica finger print sensor.
 
           If unsure, say N.
+
+config SENSORS_STK3X1X_MOTO
+	bool "SensorTek stk3x1x"
+	default n
+	depends on I2C
+	help
+	  Say yes here for STK3X1X by Sensortek
