@@ -2853,6 +2853,7 @@ static struct pll_clk a7sspll = {
 		.main_output_mask = BIT(0),
 	},
 	.base = &virt_bases[APCS_PLL_BASE],
+	.rcg_debug_base = &virt_bases[APCS_BASE],
 	.c = {
 		.parent = &xo_a_clk.c,
 		.dbg_name = "a7sspll",
