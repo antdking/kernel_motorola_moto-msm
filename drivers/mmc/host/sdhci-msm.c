@@ -2527,17 +2527,23 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 /*
  * Simulate a device reset by toggling power on the slot.
  */
+#define HW_RESET_DELAY_INCREMENT	5000
+#define HW_RESET_DELAY_RANGE		2000
+#define HW_RESET_DELAY_MAX		100000
 static void sdhci_msm_hw_reset(struct sdhci_host *host)
 {
 	struct mmc_card *card = host->mmc->card;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	unsigned long delay = 10000;
+	unsigned long delay;
 	int rc;
 
 	if (!card || !mmc_card_sd(card))
 		return;
 
+	delay = HW_RESET_DELAY_INCREMENT * (card->failures + 1);
+	if (delay > HW_RESET_DELAY_MAX)
+		delay = HW_RESET_DELAY_MAX;
 	pr_debug("%s: host reset (%lu uS)\n", mmc_hostname(host->mmc), delay);
 
 	/*
@@ -2551,7 +2557,7 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	}
 
 	/* Let the rails drain. */
-	usleep_range(delay, delay + 2000);
+	usleep_range(delay, delay + HW_RESET_DELAY_RANGE);
 
 	rc = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
 	if (rc) {
@@ -2561,7 +2567,7 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	}
 
 	/* Let the rails settle. */
-	usleep_range(delay, delay + 2000);
+	usleep_range(delay, delay + HW_RESET_DELAY_RANGE);
 }
 
 /*
