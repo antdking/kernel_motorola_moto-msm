@@ -2352,7 +2352,6 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 				&& !chip->out_of_temp
 				&& !chip->ext_hi_temp
 				&& charger_in
-				&& !chip->resuming_charging
 				&& !chip->charging_disabled
 				&& chip->soc_resume_limit
 				&& soc <= chip->soc_resume_limit) {
@@ -2360,6 +2359,7 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 			chip->resuming_charging = true;
 			qpnp_chg_irq_wake_enable(&chip->chg_fastchg);
 			qpnp_chg_set_appropriate_vbatdet(chip);
+			chip->resuming_charging = false;
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
 		}
 		if (soc == 0) {
