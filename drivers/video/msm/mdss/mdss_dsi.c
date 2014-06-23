@@ -905,12 +905,17 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 	return dsi_pan_node;
 }
 
-int mdss_dsi_ioctl_handler(struct mdss_panel_data *pdata, u32 cmd, void *arg)
+static int mdss_dsi_ioctl_panel_reg_write(struct mdss_panel_data *pdata,
+					void __user *arg)
 {
-	int rc = -ENOSYS;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	int ret = 0;
 	struct msmfb_reg_access reg_access;
-	int old_tx_mode;
+	u8 *reg_access_buf;
 	int mode = DSI_MODE_BIT_LP;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	if (!pdata->panel_info.panel_power_on) {
 		pr_err("%s: Panel is off\n", __func__);
@@ -920,19 +925,81 @@ int mdss_dsi_ioctl_handler(struct mdss_panel_data *pdata, u32 cmd, void *arg)
 	if (copy_from_user(&reg_access, arg, sizeof(reg_access)))
 		return -EFAULT;
 
+	reg_access_buf = kmalloc(reg_access.buffer_size + 1, GFP_KERNEL);
+	if (reg_access_buf == NULL)
+		return -ENOMEM;
+
+	reg_access_buf[0] = reg_access.address;
+	if (copy_from_user(&reg_access_buf[1], reg_access.buffer,
+				reg_access.buffer_size)) {
+		kfree(reg_access_buf);
+		return -EFAULT;
+	}
+
 	if (reg_access.use_hs_mode)
 		mode = DSI_MODE_BIT_HS;
 
-	old_tx_mode = mdss_get_tx_power_mode(pdata);
-	if (mode != old_tx_mode)
-		mdss_set_tx_power_mode(mode, pdata);
+	ret = ctrl_pdata->reg_write(pdata, mode,
+				reg_access.buffer_size + 1, reg_access_buf);
 
-	rc = mdss_dsi_panel_ioctl_handler(pdata, cmd, arg);
+	kfree(reg_access_buf);
+	return ret;
+}
 
-	if (mode != old_tx_mode)
-		mdss_set_tx_power_mode(old_tx_mode, pdata);
+static int mdss_dsi_ioctl_panel_reg_read(struct mdss_panel_data *pdata,
+					void __user *arg)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	int ret = 0;
+	struct msmfb_reg_access reg_access;
+	u8 *reg_access_buf;
+	int mode = DSI_MODE_BIT_LP;
 
-	return rc;
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (!pdata->panel_info.panel_power_on) {
+		pr_err("%s: Panel is off\n", __func__);
+		return -EPERM;
+	}
+
+	if (copy_from_user(&reg_access, arg, sizeof(reg_access)))
+		return -EFAULT;
+
+	reg_access_buf = kmalloc(reg_access.buffer_size, GFP_KERNEL);
+	if (reg_access_buf == NULL)
+		return -ENOMEM;
+
+	if (reg_access.use_hs_mode)
+		mode = DSI_MODE_BIT_HS;
+
+	ret = ctrl_pdata->reg_read(pdata, reg_access.address,
+				mode,
+				reg_access.buffer_size, reg_access_buf);
+
+	if ((ret == 0) &&
+		(copy_to_user(reg_access.buffer, reg_access_buf,
+			reg_access.buffer_size))) {
+		ret = -EFAULT;
+	}
+
+	kfree(reg_access_buf);
+	return ret;
+}
+
+int mdss_dsi_ioctl_handler(struct mdss_panel_data *pdata, u32 cmd, void *arg)
+{
+	int ret = -ENOSYS;
+
+	switch (cmd) {
+	case MSMFB_REG_WRITE:
+		ret = mdss_dsi_ioctl_panel_reg_write(pdata, arg);
+		break;
+	case MSMFB_REG_READ:
+		ret = mdss_dsi_ioctl_panel_reg_read(pdata, arg);
+		break;
+	}
+	return ret;
 }
 
 static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
@@ -1044,7 +1111,7 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 
 	/* Parse the regulator information */
 	rc = mdss_dsi_get_dt_vreg_data(&pdev->dev,
-					&ctrl_pdata->power_data, NULL);
+						&ctrl_pdata->power_data, NULL);
 	if (rc) {
 		pr_err("%s: failed to get vreg data from dt. rc=%d\n",
 								__func__, rc);
